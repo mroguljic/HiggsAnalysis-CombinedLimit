@@ -377,7 +377,7 @@ class ModelBuilder(ModelBuilderBase):
                 if self.options.bin:
                   self.out.var("%s_In" % n).setConstant(True)
             elif pdf == "lnU" or pdf == "shapeU":
-                self.doObj("%s_Pdf" % n, "Uniform", "%s[-1,1]" % n);
+                self.doObj("%s_Pdf" % n, "Uniform", "%s[-5,5]" % n);
             elif pdf == "unif":
                 self.doObj("%s_Pdf" % n, "Uniform", "%s[%f,%f]" % (n,args[0],args[1]))
             elif (pdf == "dFD" or pdf == "dFD2"):

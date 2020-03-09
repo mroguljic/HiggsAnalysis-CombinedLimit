@@ -26,12 +26,15 @@ public:
     // float getChebyshevVal(float xval, float yval, float thisOrderX, float thisOrderY) const; 
     RooAddition getBinVal(const float xCenter, const float yCenter) const;
     void drawBasis(std::string file_name);
+    RooArgList getCoeffs();
 
 protected:
     // variables
     TH2F* binning;
     Int_t orderX;
     Int_t orderY;
+    char name;
+    char title;
     RooArgList coefList;
     Double_t xmin;
     Double_t xmax;
@@ -40,7 +43,6 @@ protected:
     float slope_x;
     float slope_y;
     // std::map<std::string, TH2F> polyHists;  
-
     // functions
     std::pair<float, float> mapToChebyshev(float ix,float iy) const;
     float Eval2DChebyshev(float x, float y, int thisOrderX, int thisOrderY) const;

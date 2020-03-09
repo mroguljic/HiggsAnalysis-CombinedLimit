@@ -3,20 +3,20 @@
 
 ClassImp(chebyshevBasis)
 
-chebyshevBasis::chebyshevBasis( const char *name,
-                                const char *title,
+chebyshevBasis::chebyshevBasis( const char *_name,
+                                const char *_title,
                                 const Int_t _orderX,
                                 const Int_t _orderY,
                                 const TH2 &_binning ) :
-    orderX(_orderX), orderY(_orderY)
+    orderX(_orderX), orderY(_orderY), name(*_name), title(*_title)
 
 {
-    std::string thisName;
+    std::string thisName; 
     binning = static_cast<TH2F*>(_binning.Clone());
     // Build list of RooRealVar Coefficients
     for (Int_t ix=0; ix <= orderX; ix++){
         for (Int_t iy=0; iy <= orderY; iy++){
-            thisName = "ChebCoeff_x"+std::to_string(ix)+"y"+std::to_string(iy);
+            std::string thisName = "ChebCoeff_x"+std::to_string(ix)+"y"+std::to_string(iy)+"_"+std::to_string(name); 
             RooRealVar* thisRRV = new RooRealVar(thisName.c_str(),thisName.c_str(),0.01,-10.0,10.0);
             coefList.add(*thisRRV);
         }
@@ -30,16 +30,16 @@ chebyshevBasis::chebyshevBasis( const char *name,
     ymax = _binning.GetYaxis()->GetXmax();
     slope_x = 2/(xmax-xmin);
     slope_y = 2/(ymax-ymin);
-
+ 
 }
 
 RooAddition chebyshevBasis::getBinVal(const float xCenter, const float yCenter) const {
     // Map "real" axis values to [-1,1] range
     std::pair<float, float> mappedvals = mapToChebyshev(xCenter,yCenter);
-
+    std::cout << "DEBUG: " << mappedvals.first<< ", "<<mappedvals.second<<std::endl;
     Int_t xbin = binning->GetXaxis()->FindBin(xCenter);
     Int_t ybin = binning->GetYaxis()->FindBin(yCenter);
-
+    std::cout << "DEBUG: " << xbin << ", " << ybin << std::endl;
     std::string basisName;
     std::string coeffName;
     std::string formulaName;
@@ -49,17 +49,17 @@ RooAddition chebyshevBasis::getBinVal(const float xCenter, const float yCenter) 
         for (Int_t iy=0; iy<=orderY; iy++){
             // std::cout << "DEBUG: " << ix << ", " << iy << std::endl;
             // Bin value
-            basisName = "ChebBasisVal_x"+std::to_string(ix)+"y"+std::to_string(iy)+"_bin"+std::to_string(xbin)+"-"+std::to_string(ybin);
+            basisName = "ChebBasisVal_x"+std::to_string(ix)+"y"+std::to_string(iy)+"_bin"+std::to_string(xbin)+"-"+std::to_string(ybin)+"_"+std::to_string(name);
             RooConstVar* basisConst = new RooConstVar(basisName.c_str(),basisName.c_str(),Eval2DChebyshev(mappedvals.first,mappedvals.second,ix,iy));
             // Coefficient
-            coeffName = "ChebCoeff_x"+std::to_string(ix)+"y"+std::to_string(iy);
+            coeffName = "ChebCoeff_x"+std::to_string(ix)+"y"+std::to_string(iy)+"_"+std::to_string(name);
             RooAbsArg* coeff = coefList.find(coeffName.c_str());
 
             RooArgList* formulaInput = new RooArgList(*coeff,*basisConst);
 
-            formulaName = "ChebFormula_x"+std::to_string(ix)+"y"+std::to_string(iy)+"_bin"+std::to_string(xbin)+"-"+std::to_string(ybin);
+            formulaName = "ChebFormula_x"+std::to_string(ix)+"y"+std::to_string(iy)+"_bin"+std::to_string(xbin)+"-"+std::to_string(ybin)+"_"+std::to_string(name);
             RooFormulaVar* thisCheb = new RooFormulaVar(formulaName.c_str(),formulaName.c_str(),
-                                    "@0*@1+abs(@0)",
+                                    "@0*@1",  // "@0*@1+abs(@0)",
                                     *formulaInput);    // a_ij * T_i(x)*T_j(y) + abs(a_ij)
 
             // std::cout << "DEBUG: " << formulaName << std::endl;
@@ -68,9 +68,9 @@ RooAddition chebyshevBasis::getBinVal(const float xCenter, const float yCenter) 
         }
     }
 
-    std::string thisName = "ChebSum_"+std::to_string(xbin)+"-"+std::to_string(ybin);
-    RooAddition binVal(thisName.c_str(),thisName.c_str(),toSum);
-
+    std::string thisSumName = "ChebSum_"+std::to_string(xbin)+"-"+std::to_string(ybin)+"_"+std::to_string(name);
+    RooAddition binVal(thisSumName.c_str(),thisSumName.c_str(),toSum);
+   
     return binVal;
 }
 
@@ -132,15 +132,15 @@ float chebyshevBasis::Eval2DChebyshev(float x, float y, int thisOrderX, int this
 
 std::pair<float, float> chebyshevBasis::mapToChebyshev(float ix,float iy) const {
     
-    float xp = slope_x*(ix-xmax)+1;  // Map x
-    float yp = slope_y*(iy-ymax)+1;  // Map y
+    float xp = slope_x*(ix-xmin)+1;  // Map x
+    float yp = slope_y*(iy-ymin)+1;  // Map y
     
     return std::make_pair(xp,yp);
 }
 
-void chebyshevBasis::drawBasis(std::string file_name) {
-
-    TFile outfile(file_name.c_str(),"RECREATE");
+void chebyshevBasis::drawBasis(std::string target_dir) {
+    std::string fileName = target_dir+"/basis_shapes.root";
+    TFile outfile(fileName.c_str(),"RECREATE");
 
     TCanvas basisCan("basisCan","basisCan",800,700);
     std::string canName;
@@ -171,10 +171,14 @@ void chebyshevBasis::drawBasis(std::string file_name) {
             cheb2D->Draw("surf");
             cheb2D->Write();
 
-            canName = "basis_plots/x"+std::to_string(oX)+"y"+std::to_string(oY)+".png";
+            canName = target_dir+"/x"+std::to_string(oX)+"y"+std::to_string(oY)+".png";
             basisCan.Print(canName.c_str(),"png");
         }
     }
 
     outfile.Close();
+}
+
+RooArgList chebyshevBasis::getCoeffs() {
+    return coefList;
 }

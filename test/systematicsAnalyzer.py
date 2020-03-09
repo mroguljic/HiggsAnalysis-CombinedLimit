@@ -122,7 +122,7 @@ for (lsyst,nofloat,pdf,pdfargs,errline) in DC.systs:
         if not len(errline): errline = {b:{p:0 for p in DC.exp[b].iterkeys() } for b in DC.bins}
       else: errline=errlines[lsyst]
     types = []
-    minEffect, maxEffect = 999.0, 1.0
+    minEffect, maxEffect = 999.0, 999.0
     processes = {}
     channels  = []
     errlines[lsyst] = errline
