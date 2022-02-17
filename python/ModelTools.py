@@ -92,7 +92,8 @@ class ModelBuilderBase():
         if self.options.bin: return self.factory_("%s::%s(%s)" % (type, name, X));
         else: self.out.write("%s = %s(%s);\n" % (name, type, X))
     def addDiscrete(self,var):
-	self.discrete_param_set.append(var)
+        if self.options.removeMultiPdf: return
+        self.discrete_param_set.append(var)
 
 class ModelBuilder(ModelBuilderBase):
     """This class defines the actual methods to build a model"""
@@ -281,11 +282,12 @@ class ModelBuilder(ModelBuilderBase):
         """create pdf_bin<X> and pdf_bin<X>_bonly for each bin"""
         raise RuntimeError, "Not implemented in ModelBuilder"
     def doNuisances(self):
+        for cpar in self.DC.discretes: self.addDiscrete(cpar)
+
         if len(self.DC.systs) == 0: return
         self.doComment(" ----- nuisances -----")
         globalobs = []
 
-        for cpar in self.DC.discretes: self.addDiscrete(cpar)
         for (n,nofloat,pdf,args,errline) in self.DC.systs:
             is_func_scaled = False
             func_scaler = None
@@ -517,10 +519,15 @@ class ModelBuilder(ModelBuilderBase):
             if n in self.DC.frozenNuisances:
                 self.out.var(n).setConstant(True)
         if self.options.bin:
+	    # avoid duplicating  _Pdf in list 
+	    setNuisPdf = []
             nuisPdfs = ROOT.RooArgList()
             nuisVars = ROOT.RooArgSet()
             for (n,nf,p,a,e) in self.DC.systs:
 		if p!= "constr": nuisVars.add(self.out.var(n))
+	        setNuisPdf.append(n)
+	    setNuisPdf = set(setNuisPdf)
+	    for n in setNuisPdf:
                 nuisPdfs.add(self.out.pdf(n+"_Pdf"))
             self.out.defineSet("nuisances", nuisVars)
             self.out.nuisPdf = ROOT.RooProdPdf("nuisancePdf", "nuisancePdf", nuisPdfs)
@@ -530,8 +537,10 @@ class ModelBuilder(ModelBuilderBase):
             for g in globalobs: gobsVars.add(self.out.var(g))
             self.out.defineSet("globalObservables", gobsVars)
         else: # doesn't work for too many nuisances :-(
+	    # avoid duplicating  _Pdf in list 
+	    setNuisPdf = set([n for (n,nf,p,a,e) in self.DC.systs])
             self.doSet("nuisances", ",".join(["%s"    % n for (n,nf,p,a,e) in self.DC.systs]))
-            self.doObj("nuisancePdf", "PROD", ",".join(["%s_Pdf" % n for (n,nf,p,a,e) in self.DC.systs]))
+            self.doObj("nuisancePdf", "PROD", ",".join(["%s_Pdf" %n for n  in setNuisPdf]))
             self.doSet("globalObservables", ",".join(globalobs))
 
     def doNuisancesGroups(self):
